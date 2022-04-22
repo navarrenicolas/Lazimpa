@@ -973,7 +973,7 @@ class SenderImpatientReceiverRnnReinforceNoisy(nn.Module):
         :param length_cost: the penalty applied to Sender for each symbol produced
         :param reg: apply the regularization scheduling (Lazy Speaker)
         """
-        super(SenderImpatientReceiverRnnReinforce, self).__init__()
+        super(SenderImpatientReceiverRnnReinforceNoisy, self).__init__()
         self.sender = sender
         self.receiver = receiver
         self.sender_entropy_coeff = sender_entropy_coeff

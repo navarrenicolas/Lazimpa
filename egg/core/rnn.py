@@ -51,7 +51,8 @@ class RnnEncoder(nn.Module):
         emb = self.embedding(message)
 
         if lengths is None:
-            lengths = find_lengths(message)
+            # lengths = find_lengths(message)
+            lengths = find_lengths(message).cpu()
 
         packed = nn.utils.rnn.pack_padded_sequence(
             emb, lengths, batch_first=True, enforce_sorted=False)
