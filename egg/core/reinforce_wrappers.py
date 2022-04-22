@@ -869,8 +869,8 @@ class SenderReceiverRnnReinforceNoisy(nn.Module):
 
     def forward(self, sender_input, labels, receiver_input=None):
         message, log_prob_s, entropy_s = self.sender(sender_input)
-        message = add_noise()
-        message_lengths = find_lengths(message)
+        message = add_noise(message)
+        message_length = find_lengths(message)
 
         receiver_output, log_prob_r, entropy_r = self.receiver(message, receiver_input, message_lengths)
 
@@ -988,7 +988,7 @@ class SenderImpatientReceiverRnnReinforceNoisy(nn.Module):
 
     def forward(self, sender_input, labels, receiver_input=None):
         message, log_prob_s, entropy_s = self.sender(sender_input)
-        message = add_noise()
+        message = add_noise(message)
         message_lengths = find_lengths(message)
 
         # If impatient 1
