@@ -491,6 +491,9 @@ def find_lengths(messages: torch.Tensor) -> torch.Tensor:
 
     return lengths
 
+def add_noise(messages: torch.Tensor)-> torch.Tensor:
+    # print(messages)
+    return messages
 
 def dump_test_position(game: torch.nn.Module,
                               dataset: 'torch.utils.data.DataLoader',
