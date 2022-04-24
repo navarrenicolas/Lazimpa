@@ -14,8 +14,10 @@ from egg.zoo.channel.features import OneHotLoader, UniformLoader
 from egg.zoo.channel.archs import Sender, Receiver
 from egg.core.util import dump_sender_receiver_test
 from egg.core.util import dump_impose_message
+from egg.core.util import dump_test_position
+from egg.core.util import dump_test_position_impatient
 from egg.core.reinforce_wrappers import RnnReceiverImpatient
-from egg.core.reinforce_wrappers import SenderImpatientReceiverRnnReinforceNoisy
+from egg.core.reinforce_wrappers import SenderImpatientReceiverRnnReinforce
 from egg.core.util import dump_sender_receiver_impatient
 
 
@@ -88,20 +90,12 @@ def get_params(params):
 
     return args
 
-
-def loss(sender_input, _message, _receiver_input, receiver_output, _labels):
-    acc = (receiver_output.argmax(dim=1) == sender_input.argmax(dim=1)).detach().float()
-    loss = F.cross_entropy(receiver_output, sender_input.argmax(dim=1), reduction="none")
-    return loss, {'acc': acc}
-
-
 def dump(game, n_features, device, gs_mode):
     # tiny "dataset"
     dataset = [[torch.eye(n_features).to(device), None]]
 
     sender_inputs, messages, receiver_inputs, receiver_outputs, _ = \
-            core.dump_sender_receiver(game, dataset, gs=gs_mode, device=device, variable_length=True)
-
+        core.dump_sender_receiver(game, dataset, gs=gs_mode, device=device, variable_length=True)
 
     unif_acc = 0.
     powerlaw_acc = 0.
@@ -115,83 +109,16 @@ def dump(game, n_features, device, gs_mode):
 
         unif_acc += acc
         powerlaw_acc += powerlaw_probs[input_symbol] * acc
-        print(f'input: {input_symbol.item()} -> message: {",".join([str(x.item()) for x in message])} -> output: {output_symbol.item()}', flush=True)
+        #print(f'input: {input_symbol.item()} -> message: {",".join([str(x.item()) for x in message])} -> output: {output_symbol.item()}', flush=True)
 
     unif_acc /= n_features
-
-    print(f'Mean accuracy wrt uniform distribution is {unif_acc}')
-    print(f'Mean accuracy wrt powerlaw distribution is {powerlaw_acc}')
-    print(json.dumps({'powerlaw': powerlaw_acc, 'unif': unif_acc}))
 
     return acc, messages
 
-def dump_impatient(game, n_features, device, gs_mode,save_dir):
-    # tiny "dataset"
-    dataset = [[torch.eye(n_features).to(device), None]]
-
-    sender_inputs, messages, receiver_inputs, receiver_outputs, _ = \
-        dump_sender_receiver_impatient(game, dataset, gs=gs_mode, device=device, variable_length=True, test_mode=True,save_dir=save_dir)
-
-    unif_acc = 0.
-    powerlaw_acc = 0.
-    powerlaw_probs = 1 / np.arange(1, n_features+1, dtype=np.float32)
-    powerlaw_probs /= powerlaw_probs.sum()
-
-    acc_vec=np.zeros(n_features)
-
-    for sender_input, message, receiver_output in zip(sender_inputs, messages, receiver_outputs):
-        input_symbol = sender_input.argmax()
-        output_symbol = receiver_output.argmax()
-        acc = (input_symbol == output_symbol).float().item()
-
-        acc_vec[int(input_symbol)]=acc
-
-        unif_acc += acc
-        powerlaw_acc += powerlaw_probs[input_symbol] * acc
-        print(f'input: {input_symbol.item()} -> message: {",".join([str(x.item()) for x in message])} -> output: {output_symbol.item()}', flush=True)
-
-    unif_acc /= n_features
-
-    #print(f'Mean accuracy wrt uniform distribution is {unif_acc}')
-    #print(f'Mean accuracy wrt powerlaw distribution is {powerlaw_acc}')
-    print(json.dumps({'powerlaw': powerlaw_acc, 'unif': unif_acc}))
-
-    return acc_vec, messages
-
-def position_test(game, n_features, device, gs_mode,pos_min=0,pos_max=1):
-    # tiny "dataset"
-    dataset = [[torch.eye(n_features).to(device), None]]
-
-    sender_inputs, messages, receiver_inputs, receiver_outputs, _ = \
-        dump_sender_receiver_test(game,
-                                       dataset,
-                                       gs=gs_mode,
-                                       device=device,
-                                       variable_length=True,
-                                       pos_min=pos_min,
-                                       pos_max=pos_max)
-
-    unif_acc = 0.
-    powerlaw_acc = 0.
-    powerlaw_probs = 1 / np.arange(1, n_features+1, dtype=np.float32)
-    powerlaw_probs /= powerlaw_probs.sum()
-
-    for sender_input, message, receiver_output in zip(sender_inputs, messages, receiver_outputs):
-        input_symbol = sender_input.argmax()
-        output_symbol = receiver_output.argmax()
-        acc = (input_symbol == output_symbol).float().item()
-
-        unif_acc += acc
-        powerlaw_acc += powerlaw_probs[input_symbol] * acc
-        print(f'input: {input_symbol.item()} -> message: {",".join([str(x.item()) for x in message])} -> output: {output_symbol.item()}', flush=True)
-
-    unif_acc /= n_features
-
-    print(f'Mean accuracy wrt uniform distribution is {unif_acc}')
-    print(f'Mean accuracy wrt powerlaw distribution is {powerlaw_acc}')
-    print(json.dumps({'powerlaw': powerlaw_acc, 'unif': unif_acc}))
-
-    return acc, messages
+def loss(sender_input, _message, _receiver_input, receiver_output, _labels):
+    acc = (receiver_output.argmax(dim=1) == sender_input.argmax(dim=1)).detach().float()
+    loss = F.cross_entropy(receiver_output, sender_input.argmax(dim=1), reduction="none")
+    return loss, {'acc': acc}
 
 def main(params):
     opts = get_params(params)
@@ -250,20 +177,16 @@ def main(params):
           receiver = RnnReceiverImpatient(receiver, opts.vocab_size, opts.receiver_embedding,
                                             opts.receiver_hidden, cell=opts.receiver_cell,
                                             num_layers=opts.receiver_num_layers, max_len=opts.max_len, n_features=opts.n_features)
-          # If impatient 2
-          #receiver = RnnReceiverImpatient2(receiver, opts.vocab_size, opts.receiver_embedding,
-        #                                         opts.receiver_hidden, cell=opts.receiver_cell,
-        #                                         num_layers=opts.receiver_num_layers, max_len=opts.max_len, n_features=opts.n_features)
 
     sender.load_state_dict(torch.load(opts.sender_weights,map_location=torch.device('cpu')))
     receiver.load_state_dict(torch.load(opts.receiver_weights,map_location=torch.device('cpu')))
 
     if not opts.impatient:
-        game = core.SenderReceiverRnnReinforceNoisy(sender, receiver, loss, sender_entropy_coeff=opts.sender_entropy_coeff,
+        game = core.SenderReceiverRnnReinforce(sender, receiver, loss, sender_entropy_coeff=opts.sender_entropy_coeff,
                                            receiver_entropy_coeff=opts.receiver_entropy_coeff,
                                            length_cost=opts.length_cost,unigram_penalty=opts.unigram_pen)
     else:
-        game = SenderImpatientReceiverRnnReinforceNoisy(sender, receiver, loss, sender_entropy_coeff=opts.sender_entropy_coeff,
+        game = SenderImpatientReceiverRnnReinforce(sender, receiver, loss, sender_entropy_coeff=opts.sender_entropy_coeff,
                                            receiver_entropy_coeff=opts.receiver_entropy_coeff,
                                            length_cost=opts.length_cost,unigram_penalty=opts.unigram_pen)
 
@@ -272,26 +195,67 @@ def main(params):
     trainer = core.Trainer(game=game, optimizer=optimizer, train_data=train_loader,
                            validation_data=test_loader, callbacks=[EarlyStopperAccuracy(opts.early_stopping_thr)])
 
-    # Test impose message
 
-    if not opts.impatient:
-        acc_vec,messages=dump(trainer.game, opts.n_features, device, False)
-    else:
-        acc_vec,messages=dump_impatient(trainer.game, opts.n_features, device, False,save_dir=opts.save_dir)
 
-    all_messages=[]
+    # Debut test position
+
+    position_sieve=np.zeros((opts.n_features,opts.max_len))
+
+    for position in range(opts.max_len):
+
+        dataset = [[torch.eye(opts.n_features).to(device), None]]
+
+        if opts.impatient:
+            sender_inputs, messages, receiver_inputs, receiver_outputs, _ = \
+                dump_test_position_impatient(trainer.game,
+                                    dataset,
+                                    position=position,
+                                    voc_size=opts.vocab_size,
+                                    gs=False,
+                                    device=device,
+                                    variable_length=True)
+        else:
+            sender_inputs, messages, receiver_inputs, receiver_outputs, _ = \
+                dump_test_position(trainer.game,
+                                    dataset,
+                                    position=position,
+                                    voc_size=opts.vocab_size,
+                                    gs=False,
+                                    device=device,
+                                    variable_length=True)
+
+        acc_pos=[]
+
+        for sender_input, message, receiver_output in zip(sender_inputs, messages, receiver_outputs):
+            input_symbol = sender_input.argmax()
+            output_symbol = receiver_output.argmax()
+            acc = (input_symbol == output_symbol).float().item()
+            acc_pos.append(acc)
+
+        acc_pos=np.array(acc_pos)
+
+        position_sieve[:,position]=acc_pos
+
+    # Put -1 for position after message_length
+    _, messages = dump(trainer.game, opts.n_features, device, False)
+
+    # Convert messages to numpy array
+    messages_np=[]
     for x in messages:
         x = x.cpu().numpy()
-        all_messages.append(x)
-    all_messages = np.asarray(all_messages)
+        messages_np.append(x)
 
-    messages=-1*np.ones((opts.n_features,opts.max_len))
+    for i in range(len(messages_np)):
+        # Message i
+        message_i=messages_np[i]
+        id_0=np.where(message_i==0)[0]
 
-    for i in range(len(all_messages)):
-      for j in range(all_messages[i].shape[0]):
-        messages[i,j]=all_messages[i][j]
+        if id_0.shape[0]>0:
+          for j in range(id_0[0]+1,opts.max_len):
+              position_sieve[i,j]=-1
 
-    np.save(opts.save_dir+"messages_analysis.npy",messages)
+
+    np.save("analysis/position_sieve.npy",position_sieve)
 
     core.close()
 

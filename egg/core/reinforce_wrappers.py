@@ -835,7 +835,7 @@ class SenderReceiverRnnReinforceNoisy(nn.Module):
     5.0
     """
     def __init__(self, sender, receiver, loss, sender_entropy_coeff, receiver_entropy_coeff,
-                 length_cost=0.0,unigram_penalty=0.0,reg=False):
+                 length_cost=0.0,unigram_penalty=0.0,reg=False,rand_noise=False):
         """
         :param sender: sender agent
         :param receiver: receiver agent
@@ -866,10 +866,12 @@ class SenderReceiverRnnReinforceNoisy(nn.Module):
         self.mean_baseline = defaultdict(float)
         self.n_points = defaultdict(float)
         self.reg=reg
+        self.rand_noise=rand_noise
 
     def forward(self, sender_input, labels, receiver_input=None):
         message, log_prob_s, entropy_s = self.sender(sender_input)
-        message = add_noise(message)
+        message = add_noise(message,self.sender.vocab_size,self.rand_noise)
+        # message = add_noise(message,self.sender.vocab_size,False)
         message_lengths = find_lengths(message)
 
         receiver_output, log_prob_r, entropy_r = self.receiver(message, receiver_input, message_lengths)
@@ -954,7 +956,7 @@ class SenderImpatientReceiverRnnReinforceNoisy(nn.Module):
     When reg is set to True, the regularization scheduling is applied (Lazy Speaker).
     """
     def __init__(self, sender, receiver, loss, sender_entropy_coeff, receiver_entropy_coeff,
-                 length_cost=0.0,unigram_penalty=0.0,reg=False):
+                 length_cost=0.0,unigram_penalty=0.0,reg=False,rand_noise=False):
         """
         :param sender: sender agent
         :param receiver: receiver agent
@@ -982,13 +984,15 @@ class SenderImpatientReceiverRnnReinforceNoisy(nn.Module):
         self.length_cost = length_cost
         self.unigram_penalty = unigram_penalty
         self.reg=reg
+        self.rand_noise = rand_noise
 
         self.mean_baseline = defaultdict(float)
         self.n_points = defaultdict(float)
 
     def forward(self, sender_input, labels, receiver_input=None):
         message, log_prob_s, entropy_s = self.sender(sender_input)
-        message = add_noise(message)
+        message = add_noise(message,self.sender.vocab_size,self.rand_noise)
+        # message = add_noise(message,self.sender.vocab_size,False)
         message_lengths = find_lengths(message)
 
         # If impatient 1

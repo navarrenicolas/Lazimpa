@@ -82,6 +82,9 @@ def get_params(params):
                         help='Print message ?')
     parser.add_argument('--reg', type=bool, default=False,
                         help='Add regularization ?')
+    parser.add_argument('--rand_noise', type=bool, default=False,
+                        help='Use random noise?')
+    
 
     args = core.init(parser, params)
 
@@ -348,11 +351,11 @@ def main(params):
     if not opts.impatient:
         game = core.SenderReceiverRnnReinforceNoisy(sender, receiver, loss, sender_entropy_coeff=opts.sender_entropy_coeff,
                                            receiver_entropy_coeff=opts.receiver_entropy_coeff,
-                                           length_cost=opts.length_cost,unigram_penalty=opts.unigram_pen,reg=opts.reg)
+                                           length_cost=opts.length_cost,unigram_penalty=opts.unigram_pen,reg=opts.reg,rand_noise=opts.rand_noise)
     else:
         game = SenderImpatientReceiverRnnReinforceNoisy(sender, receiver, loss_impatient, sender_entropy_coeff=opts.sender_entropy_coeff,
                                            receiver_entropy_coeff=opts.receiver_entropy_coeff,
-                                           length_cost=opts.length_cost,unigram_penalty=opts.unigram_pen,reg=opts.reg)
+                                           length_cost=opts.length_cost,unigram_penalty=opts.unigram_pen,reg=opts.reg,rand_noise=opts.rand_noise)
 
     optimizer = core.build_optimizer(game.parameters())
 
