@@ -505,7 +505,7 @@ def add_noise_neighbors(messages: torch.Tensor,transitions,threshold)-> torch.Te
     for message in messages:
         for idx, char in enumerate(message):
             neighbors = transitions(char)
-            if random.randomint(0,99)/100.0 < threshold:
+            if random.randint(0,99)/100.0 < threshold:
                 message[idx] = random.choice(neighbors)
     return messages
     
