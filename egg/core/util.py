@@ -496,10 +496,19 @@ def add_noise(messages: torch.Tensor,vocab_size,rand,threshold)-> torch.Tensor:
         return messages
     for message in messages:
         for idx, char in enumerate(message):
-            if random.randomint(0,1) <= threshold:
+            if random.randomint(0,99)/100.0 < threshold:
                 message[idx] = random.choice(range(vocab_size))
     # print(messages)
     return messages
+
+def add_noise_neighbors(messages: torch.Tensor,transitions,threshold)-> torch.Tensor:
+    for message in messages:
+        for idx, char in enumerate(message):
+            neighbors = transitions(char)
+            if random.randomint(0,99)/100.0 < threshold:
+                message[idx] = random.choice(neighbors)
+    pass
+    
 
 def dump_test_position(game: torch.nn.Module,
                               dataset: 'torch.utils.data.DataLoader',

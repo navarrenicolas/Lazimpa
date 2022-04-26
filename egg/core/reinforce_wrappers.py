@@ -877,7 +877,7 @@ class SenderReceiverRnnReinforceNoisy(nn.Module):
 
         receiver_output, log_prob_r, entropy_r = self.receiver(message, receiver_input, message_lengths)
 
-        loss, rest = self.loss(sender_input, message, receiver_input, receiver_output, labels)
+        loss, rest = self.loss(sender_input, old_message, receiver_input, receiver_output, labels)
 
         # the entropy of the outputs of S before and including the eos symbol - as we don't care about what's after
         effective_entropy_s = torch.zeros_like(entropy_r)

@@ -270,6 +270,8 @@ def dump_impatient(game, n_features, device, gs_mode,epoch):
 
     return acc_vec, messages
 
+
+
 def main(params):
     print(torch.cuda.is_available())
     opts = get_params(params)
@@ -308,6 +310,9 @@ def main(params):
 
     # single batches with 1s on the diag
     test_loader = UniformLoader(opts.n_features)
+    
+    def transitions(char):
+        pass
 
     if opts.sender_cell == 'transformer':
         sender = Sender(n_features=opts.n_features, n_hidden=opts.sender_embedding)
