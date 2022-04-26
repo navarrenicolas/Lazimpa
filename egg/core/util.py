@@ -507,7 +507,7 @@ def add_noise_neighbors(messages: torch.Tensor,transitions,threshold)-> torch.Te
             neighbors = transitions(char)
             if random.randomint(0,99)/100.0 < threshold:
                 message[idx] = random.choice(neighbors)
-    pass
+    return messages
     
 
 def dump_test_position(game: torch.nn.Module,
