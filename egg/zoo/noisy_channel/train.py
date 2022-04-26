@@ -84,6 +84,8 @@ def get_params(params):
                         help='Add regularization ?')
     parser.add_argument('--rand_noise', type=bool, default=False,
                         help='Use random noise?')
+    parser.add_argument('--threshold', type=float, default=0.02,
+                        help='Base probability for noise')
     
 
     args = core.init(parser, params)
@@ -351,11 +353,13 @@ def main(params):
     if not opts.impatient:
         game = core.SenderReceiverRnnReinforceNoisy(sender, receiver, loss, sender_entropy_coeff=opts.sender_entropy_coeff,
                                            receiver_entropy_coeff=opts.receiver_entropy_coeff,
-                                           length_cost=opts.length_cost,unigram_penalty=opts.unigram_pen,reg=opts.reg,rand_noise=opts.rand_noise)
+                                           length_cost=opts.length_cost,unigram_penalty=opts.unigram_pen,reg=opts.reg,
+                                           rand_noise=opts.rand_noise, threshold=opts.threshold)
     else:
         game = SenderImpatientReceiverRnnReinforceNoisy(sender, receiver, loss_impatient, sender_entropy_coeff=opts.sender_entropy_coeff,
                                            receiver_entropy_coeff=opts.receiver_entropy_coeff,
-                                           length_cost=opts.length_cost,unigram_penalty=opts.unigram_pen,reg=opts.reg,rand_noise=opts.rand_noise)
+                                           length_cost=opts.length_cost,unigram_penalty=opts.unigram_pen,reg=opts.reg,
+                                           rand_noise=opts.rand_noise, threshold=opts.threshold)
 
     optimizer = core.build_optimizer(game.parameters())
 

@@ -491,12 +491,13 @@ def find_lengths(messages: torch.Tensor) -> torch.Tensor:
 
     return lengths
 
-def add_noise(messages: torch.Tensor,vocab_size,rand)-> torch.Tensor:
+def add_noise(messages: torch.Tensor,vocab_size,rand,threshold)-> torch.Tensor:
     if not rand: 
         return messages
     for message in messages:
-        for idx,char in enumerate(message):
-            message[idx] = random.choice(range(vocab_size))
+        for idx, char in enumerate(message):
+            if random.randomint(0,1) <= threshold:
+                message[idx] = random.choice(range(vocab_size))
     # print(messages)
     return messages
 
