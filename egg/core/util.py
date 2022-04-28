@@ -503,7 +503,7 @@ def add_noise(messages: torch.Tensor,vocab_size,rand,threshold,neighbors=None)->
         for message in messages:
             for idx, char in enumerate(message):
                 if random.randint(0,99)/100.0 < threshold:
-                    c = message[idx].cpu()
+                    c = char.item()
                     message[idx] = random.choice(neighbors[c])
     return messages
 
