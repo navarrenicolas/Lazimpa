@@ -1005,8 +1005,7 @@ class SenderImpatientReceiverRnnReinforceNoisy(nn.Module):
         """ NOISE VERSION
 
         # Randomly takes a position
-        rand_length=np.random.randint(0,message.size(1))
-
+        rand_length=np.random.randint(0,message.size(1))git 
         # Loss by output
         loss, rest = self.loss(sender_input, message, receiver_input, receiver_output[:,rand_length,:], labels)
 
