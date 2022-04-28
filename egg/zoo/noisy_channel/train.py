@@ -93,7 +93,7 @@ def get_params(params):
 
     parser.add_argument('--checkpoint',type=str,default='./dir_save/',
                         help='Location of checkpoint weitghts')
-    parser.add_argument("--job-idx", type=str, default='0',
+    parser.add_argument("--job_idx", type=int, default=0,
                         help='index of the current job (integer for grid search entries or final); default: 0')
    
     
