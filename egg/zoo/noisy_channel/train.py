@@ -86,6 +86,12 @@ def get_params(params):
                         help='Use random noise?')
     parser.add_argument('--threshold', type=float, default=0.02,
                         help='Base probability for noise')
+
+    parser.add_argument('--checkpoint',type=str,default='./dir_save/',
+                        help='Location of checkpoint weitghts')
+    parser.add_argument("--job-idx", type=str, default='0',
+                        help='index of the current job (integer for grid search entries or final); default: 0')
+   
     
 
     args = core.init(parser, params)
@@ -330,6 +336,18 @@ def main(params):
                                    opts.vocab_size, opts.sender_embedding, opts.sender_hidden,
                                    cell=opts.sender_cell, max_len=opts.max_len, num_layers=opts.sender_num_layers,
                                    force_eos=force_eos)
+            # todo: barrier for ddp
+    try:
+        checkpoint_path = f'{opts.checkpoint}sender_weights{opts.job_idx}.pth'
+        checkpoint = torch.load(checkpoint_path)
+        sender.load_state_dict(checkpoint)
+        starting_epoch = opts.job_idx + 1
+        print('Checkpoint loaded at epoch %d to path %s' % (opts.job_idx, checkpoint_path))
+        del checkpoint
+        torch.cuda.empty_cache()
+    except:
+        # todo: create a checkpoint for rank 0, and load for others (would need to barriers: for save and then for load)
+        starting_epoch = 1
     if opts.receiver_cell == 'transformer':
         receiver = Receiver(n_features=opts.n_features, n_hidden=opts.receiver_embedding)
         receiver = core.TransformerReceiverDeterministic(receiver, opts.vocab_size, opts.max_len,
@@ -354,6 +372,17 @@ def main(params):
           #receiver = RnnReceiverImpatient2(receiver, opts.vocab_size, opts.receiver_embedding,
         #                                         opts.receiver_hidden, cell=opts.receiver_cell,
         #                                         num_layers=opts.receiver_num_layers, max_len=opts.max_len, n_features=opts.n_features)
+        try:
+            checkpoint_path = f'{opts.checkpoint}receiver_weights{opts.job_idx}.pth'
+            checkpoint = torch.load(checkpoint_path)
+            receiver.load_state_dict(checkpoint)
+            starting_epoch = opts.job_idx + 1
+            print('Checkpoint loaded at epoch %d to path %s' % (opts.job_idx, checkpoint_path))
+            del checkpoint
+            torch.cuda.empty_cache()
+        except:
+            # todo: create a checkpoint for rank 0, and load for others (would need to barriers: for save and then for load)
+            starting_epoch = 1
 
     if not opts.impatient:
         game = core.SenderReceiverRnnReinforceNoisy(sender, receiver, loss, sender_entropy_coeff=opts.sender_entropy_coeff,
@@ -372,7 +401,8 @@ def main(params):
                            validation_data=test_loader, callbacks=[EarlyStopperAccuracy(opts.early_stopping_thr)])
 
 
-    for epoch in range(int(opts.n_epochs)):
+    for epoch in range(starting_epoch, opts.n_epochs):
+    # for epoch in range(int(opts.n_epochs)):
 
         print("Epoch: "+str(epoch))
 
