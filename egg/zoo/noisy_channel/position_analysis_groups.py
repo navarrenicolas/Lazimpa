@@ -17,8 +17,8 @@ from egg.core.util import dump_impose_message
 from egg.core.util import dump_test_position
 from egg.core.util import dump_test_position_impatient
 from egg.core.reinforce_wrappers import RnnReceiverImpatient
-from egg.core.reinforce_wrappers import SenderImpatientReceiverRnnReinforce
-from egg.core.util import dump_sender_receiver_impatient
+from egg.core.reinforce_wrappers import SenderImpatientReceiverRnnReinforceNoisy
+from egg.core.util import dump_sender_receiver_impatient, neighbor_matrix
 
 
 def get_params(params):
@@ -84,7 +84,11 @@ def get_params(params):
     parser.add_argument('--impatient', type=bool, default=False,
                         help="Impatient listener")
     parser.add_argument('--unigram_pen', type=float, default=0.0,
-                        help="Add a penalty for redundancy")
+                        help="Add a penalty for redundancy"),
+    parser.add_argument('--transition_width', type=int, default=5,
+                        help="Width of transition matrix.")
+    parser.add_argument('--within', type=bool, default=False,
+                        help="Analyze random changes within preset groups of words")
 
     args = core.init(parser, params)
 
@@ -140,6 +144,8 @@ def main(params):
 
     # single batches with 1s on the diag
     test_loader = UniformLoader(opts.n_features)
+    
+    neighbors = neighbor_matrix(opts.vocab_size, opts.transition_width)
 
     if opts.sender_cell == 'transformer':
         sender = Sender(n_features=opts.n_features, n_hidden=opts.sender_embedding)
@@ -181,14 +187,16 @@ def main(params):
     sender.load_state_dict(torch.load(opts.sender_weights,map_location=torch.device('cpu')))
     receiver.load_state_dict(torch.load(opts.receiver_weights,map_location=torch.device('cpu')))
 
-    if not opts.impatient:
-        game = core.SenderReceiverRnnReinforce(sender, receiver, loss, sender_entropy_coeff=opts.sender_entropy_coeff,
+    if not opts.impatient: # TODO change to noisy
+        game = core.SenderReceiverRnnReinforceNoisy(sender, receiver, loss, sender_entropy_coeff=opts.sender_entropy_coeff,
                                            receiver_entropy_coeff=opts.receiver_entropy_coeff,
-                                           length_cost=opts.length_cost,unigram_penalty=opts.unigram_pen)
+                                           length_cost=opts.length_cost,unigram_penalty=opts.unigram_pen,
+                                           rand_noise=False)
     else:
-        game = SenderImpatientReceiverRnnReinforce(sender, receiver, loss, sender_entropy_coeff=opts.sender_entropy_coeff,
+        game = SenderImpatientReceiverRnnReinforceNoisy(sender, receiver, loss, sender_entropy_coeff=opts.sender_entropy_coeff,
                                            receiver_entropy_coeff=opts.receiver_entropy_coeff,
-                                           length_cost=opts.length_cost,unigram_penalty=opts.unigram_pen)
+                                           length_cost=opts.length_cost,unigram_penalty=opts.unigram_pen,
+                                           rand_noise=False)
 
     optimizer = core.build_optimizer(game.parameters())
 
@@ -198,6 +206,13 @@ def main(params):
 
 
     # Debut test position
+    
+    group = dict()
+    if opts.within:
+        group = neighbors
+    else:
+        for k, v in neighbors:
+            group[k] = [x for x in range(opts.vocab_size) if x not in v and x != k]
 
     position_sieve=np.zeros((opts.n_features,opts.max_len))
 
@@ -213,7 +228,8 @@ def main(params):
                                     voc_size=opts.vocab_size,
                                     gs=False,
                                     device=device,
-                                    variable_length=True)
+                                    variable_length=True,
+                                    group=group)
         else:
             sender_inputs, messages, receiver_inputs, receiver_outputs, _ = \
                 dump_test_position(trainer.game,
@@ -222,7 +238,8 @@ def main(params):
                                     voc_size=opts.vocab_size,
                                     gs=False,
                                     device=device,
-                                    variable_length=True)
+                                    variable_length=True,
+                                    group = group)
 
         acc_pos=[]
 

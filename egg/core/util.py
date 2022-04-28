@@ -491,6 +491,27 @@ def find_lengths(messages: torch.Tensor) -> torch.Tensor:
 
     return lengths
 
+def neighbor_matrix(vocab_size, width):
+        size = vocab_size
+
+        vocab = list(range(size))
+        m = [vocab[x * width:(x+1)*width] for x in range(int(size / width))]
+    
+        neighbors = dict()
+
+        for v in vocab:
+            col = v % width
+            row = v // width
+        
+            n = [m[r][c]
+                    for r in range(row - 1, row + 2) 
+                    for c in range(col - 1, col + 2) 
+                    if r < len(m) and c < len(m[0]) and r >= 0 and c >= 0 and m[r][c] != v]
+        
+            neighbors[v] = n
+            
+        return neighbors
+
 def add_noise(messages: torch.Tensor,vocab_size,rand,threshold,neighbors=None)-> torch.Tensor:
     if not rand: 
         return messages
@@ -507,7 +528,86 @@ def add_noise(messages: torch.Tensor,vocab_size,rand,threshold,neighbors=None)->
                     message[idx] = random.choice(neighbors[c])
     return messages
 
+def dump_test_position_structure(game: torch.nn.Module,
+                              dataset: 'torch.utils.data.DataLoader',
+                              position: int,
+                              voc_size: int,
+                              gs: bool, variable_length: bool, group,
+                              device: Optional[torch.device] = None):
+    """
+    A tool to dump the interaction between Sender and Receiver
+    :param game: A Game instance
+    :param dataset: Dataset of inputs to be used when analyzing the communication
+    :param gs: whether Gumbel-Softmax relaxation was used during training
+    :param variable_length: whether variable-length communication is used
+    :param device: device (e.g. 'cuda') to be used
+    :return:
+    """
+    train_state = game.training  # persist so we restore it back
+    game.eval()
 
+    device = device if device is not None else common_opts.device
+
+    sender_inputs, messages, receiver_inputs, receiver_outputs = [], [], [], []
+    labels = []
+
+    with torch.no_grad():
+        for batch in dataset:
+            # by agreement, each batch is (sender_input, labels) plus optional (receiver_input)
+            sender_input = move_to(batch[0], device)
+            receiver_input = None if len(batch) == 2 else move_to(batch[2], device)
+
+            message = game.sender(sender_input)
+
+            for i in range(message[0].size()[0]):
+                c = message[0][i,position].item()
+                message[0][i,position]=np.random.choice(group[c])
+
+            # Under GS, the only output is a message; under Reinforce, two additional tensors are returned.
+            # We don't need them.
+            if not gs: message = message[0]
+
+            output = game.receiver(message, receiver_input)
+            if not gs: output = output[0]
+
+            if batch[1] is not None:
+                labels.extend(batch[1])
+
+            if isinstance(sender_input, list) or isinstance(sender_input, tuple):
+                sender_inputs.extend(zip(*sender_input))
+            else:
+                sender_inputs.extend(sender_input)
+
+            if receiver_input is not None:
+                receiver_inputs.extend(receiver_input)
+
+            if gs: message = message.argmax(dim=-1)  # actual symbols instead of one-hot encoded
+
+            if not variable_length:
+                messages.extend(message)
+                receiver_outputs.extend(output)
+            else:
+                # A trickier part is to handle EOS in the messages. It also might happen that not every message has EOS.
+                # We cut messages at EOS if it is present or return the entire message otherwise. Note, EOS id is always
+                # set to 0.
+
+                for i in range(message.size(0)):
+                    eos_positions = (message[i, :] == 0).nonzero()
+                    message_end = eos_positions[0].item() if eos_positions.size(0) > 0 else -1
+                    assert message_end == -1 or message[i, message_end] == 0
+                    if message_end < 0:
+                        messages.append(message[i, :])
+                    else:
+                        messages.append(message[i, :message_end + 1])
+
+                    if gs:
+                        receiver_outputs.append(output[i, message_end, ...])
+                    else:
+                        receiver_outputs.append(output[i, ...])
+
+    game.train(mode=train_state)
+
+    return sender_inputs, messages, receiver_inputs, receiver_outputs, labels
     
 
 def dump_test_position(game: torch.nn.Module,
@@ -690,6 +790,106 @@ def dump_sender_receiver_impatient(game: torch.nn.Module,
     game.train(mode=train_state)
 
     return sender_inputs, messages, receiver_inputs, receiver_outputs, labels
+
+
+
+def dump_test_position_structure_impatient(game: torch.nn.Module,
+                              dataset: 'torch.utils.data.DataLoader',
+                              position: int,
+                              voc_size: int,
+                              gs: bool, variable_length: bool, group,
+                              device: Optional[torch.device] = None):
+    """
+    A tool to dump the interaction between Sender and Receiver
+    :param game: A Game instance
+    :param dataset: Dataset of inputs to be used when analyzing the communication
+    :param gs: whether Gumbel-Softmax relaxation was used during training
+    :param variable_length: whether variable-length communication is used
+    :param device: device (e.g. 'cuda') to be used
+    :return:
+    """
+    train_state = game.training  # persist so we restore it back
+    game.eval()
+
+    device = device if device is not None else common_opts.device
+
+    sender_inputs, messages, receiver_inputs, receiver_outputs = [], [], [], []
+    labels = []
+
+    with torch.no_grad():
+        for batch in dataset:
+            # by agreement, each batch is (sender_input, labels) plus optional (receiver_input)
+            sender_input = move_to(batch[0], device)
+            receiver_input = None if len(batch) == 2 else move_to(batch[2], device)
+
+            message = game.sender(sender_input)
+            
+            
+            for i in range(message[0].size()[0]):
+                c = message[0][i,position].item()
+                message[0][i,position]=np.random.choice(group[c])
+            
+
+            # Under GS, the only output is a message; under Reinforce, two additional tensors are returned.
+            # We don't need them.
+            if not gs: message = message[0]
+
+            output = game.receiver(message, receiver_input)
+            if not gs: output = output[0]
+
+            ### AJOUT CHANGEMENT###
+            #output=output[:,-1,:]
+
+            message_lengths = find_lengths(message)
+
+            outputs=[]
+
+            for i in range(output.size(0)):
+                outputs.append(output[i,message_lengths[i]-1,:])
+
+            output=torch.stack(outputs,0)
+            ####
+
+            if batch[1] is not None:
+                labels.extend(batch[1])
+
+            if isinstance(sender_input, list) or isinstance(sender_input, tuple):
+                sender_inputs.extend(zip(*sender_input))
+            else:
+                sender_inputs.extend(sender_input)
+
+            if receiver_input is not None:
+                receiver_inputs.extend(receiver_input)
+
+            if gs: message = message.argmax(dim=-1)  # actual symbols instead of one-hot encoded
+
+            if not variable_length:
+                messages.extend(message)
+                receiver_outputs.extend(output)
+            else:
+                # A trickier part is to handle EOS in the messages. It also might happen that not every message has EOS.
+                # We cut messages at EOS if it is present or return the entire message otherwise. Note, EOS id is always
+                # set to 0.
+
+                for i in range(message.size(0)):
+                    eos_positions = (message[i, :] == 0).nonzero()
+                    message_end = eos_positions[0].item() if eos_positions.size(0) > 0 else -1
+                    assert message_end == -1 or message[i, message_end] == 0
+                    if message_end < 0:
+                        messages.append(message[i, :])
+                    else:
+                        messages.append(message[i, :message_end + 1])
+
+                    if gs:
+                        receiver_outputs.append(output[i, message_end, ...])
+                    else:
+                        receiver_outputs.append(output[i, ...])
+
+    game.train(mode=train_state)
+
+    return sender_inputs, messages, receiver_inputs, receiver_outputs, labels
+
+
 
 def dump_test_position_impatient(game: torch.nn.Module,
                               dataset: 'torch.utils.data.DataLoader',

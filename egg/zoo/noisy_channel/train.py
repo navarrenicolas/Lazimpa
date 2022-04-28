@@ -14,7 +14,7 @@ from egg.zoo.channel.features import OneHotLoader, UniformLoader
 from egg.zoo.channel.archs import Sender, Receiver
 from egg.core.reinforce_wrappers import RnnReceiverImpatient
 from egg.core.reinforce_wrappers import SenderImpatientReceiverRnnReinforceNoisy
-from egg.core.util import dump_sender_receiver_impatient
+from egg.core.util import dump_sender_receiver_impatient, neighbor_matrix
 
 
 def get_params(params):
@@ -324,24 +324,8 @@ def main(params):
     
     if opts.use_neighbors:
         
-        width = opts.transition_width
-        size = opts.vocab_size
-
-        vocab = list(range(size))
-        m = [vocab[x * width:(x+1)*width] for x in range(int(size / width))]
-    
-        neighbors = dict()
-
-        for v in vocab:
-            col = v % width
-            row = v // width
+        neighbors = neighbor_matrix(opts.vocab_size, opts.transition_width)
         
-            n = [m[r][c]
-                    for r in range(row - 1, row + 2) 
-                    for c in range(col - 1, col + 2) 
-                    if r < len(m) and c < len(m[0]) and r >= 0 and c >= 0 and m[r][c] != v]
-        
-            neighbors[v] = n
     else:
         neighbors = None
         

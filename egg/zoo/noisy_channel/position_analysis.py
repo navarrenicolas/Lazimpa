@@ -12,7 +12,7 @@ import egg.core as core
 from egg.core import EarlyStopperAccuracy
 from egg.zoo.channel.features import OneHotLoader, UniformLoader
 from egg.zoo.channel.archs import Sender, Receiver
-from egg.core.util import dump_sender_receiver_test
+from egg.core.util import dump_sender_receiver_test, neighbor_matrix
 from egg.core.util import dump_impose_message
 from egg.core.util import dump_test_position
 from egg.core.util import dump_test_position_impatient
@@ -140,6 +140,8 @@ def main(params):
 
     # single batches with 1s on the diag
     test_loader = UniformLoader(opts.n_features)
+    
+    neighbors = neighbor_matrix()
 
     if opts.sender_cell == 'transformer':
         sender = Sender(n_features=opts.n_features, n_hidden=opts.sender_embedding)
@@ -184,11 +186,13 @@ def main(params):
     if not opts.impatient: # TODO change to noisy
         game = core.SenderReceiverRnnReinforce(sender, receiver, loss, sender_entropy_coeff=opts.sender_entropy_coeff,
                                            receiver_entropy_coeff=opts.receiver_entropy_coeff,
-                                           length_cost=opts.length_cost,unigram_penalty=opts.unigram_pen)
+                                           length_cost=opts.length_cost,unigram_penalty=opts.unigram_pen,
+                                           rand_noise=False)
     else:
         game = SenderImpatientReceiverRnnReinforce(sender, receiver, loss, sender_entropy_coeff=opts.sender_entropy_coeff,
                                            receiver_entropy_coeff=opts.receiver_entropy_coeff,
-                                           length_cost=opts.length_cost,unigram_penalty=opts.unigram_pen)
+                                           length_cost=opts.length_cost,unigram_penalty=opts.unigram_pen,
+                                           rand_noise=False)
 
     optimizer = core.build_optimizer(game.parameters())
 
