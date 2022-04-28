@@ -491,23 +491,22 @@ def find_lengths(messages: torch.Tensor) -> torch.Tensor:
 
     return lengths
 
-def add_noise(messages: torch.Tensor,vocab_size,rand,threshold)-> torch.Tensor:
+def add_noise(messages: torch.Tensor,vocab_size,rand,threshold,neighbors=None)-> torch.Tensor:
     if not rand: 
         return messages
-    for message in messages:
-        for idx, char in enumerate(message):
-            if random.randint(0,99)/100.0 < threshold:
-                message[idx] = random.choice(range(vocab_size))
-    # print(messages)
+    if neighbors is None:
+        for message in messages:
+            for idx, char in enumerate(message):
+                if random.randint(0,99)/100.0 < threshold:
+                    message[idx] = random.choice(range(vocab_size))
+    else:
+        for message in messages:
+            for idx, char in enumerate(message):
+                if random.randint(0,99)/100.0 < threshold:
+                    message[idx] = random.choice(neighbors[char])
     return messages
 
-def add_noise_neighbors(messages: torch.Tensor,transitions,threshold)-> torch.Tensor:
-    for message in messages:
-        for idx, char in enumerate(message):
-            neighbors = transitions(char)
-            if random.randint(0,99)/100.0 < threshold:
-                message[idx] = random.choice(neighbors)
-    return messages
+
     
 
 def dump_test_position(game: torch.nn.Module,

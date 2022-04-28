@@ -181,7 +181,7 @@ def main(params):
     sender.load_state_dict(torch.load(opts.sender_weights,map_location=torch.device('cpu')))
     receiver.load_state_dict(torch.load(opts.receiver_weights,map_location=torch.device('cpu')))
 
-    if not opts.impatient:
+    if not opts.impatient: # TODO change to noisy
         game = core.SenderReceiverRnnReinforce(sender, receiver, loss, sender_entropy_coeff=opts.sender_entropy_coeff,
                                            receiver_entropy_coeff=opts.receiver_entropy_coeff,
                                            length_cost=opts.length_cost,unigram_penalty=opts.unigram_pen)

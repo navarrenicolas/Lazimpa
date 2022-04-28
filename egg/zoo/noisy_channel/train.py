@@ -86,6 +86,10 @@ def get_params(params):
                         help='Use random noise?')
     parser.add_argument('--threshold', type=float, default=0.02,
                         help='Base probability for noise')
+    parser.add_argument('--use_neighbors', type=bool, default=False,
+                        help='Use transition matrix for structured noise?')
+    parser.add_argument('--transition_width', type=int, default=5,
+                        help='Width of transition matrix for characters.')
     
 
     args = core.init(parser, params)
@@ -311,8 +315,31 @@ def main(params):
     # single batches with 1s on the diag
     test_loader = UniformLoader(opts.n_features)
     
-    def transitions(char):
-        pass
+    
+    if opts.use_neighbors:
+        
+        width = opts.transition_width
+        size = opts.vocab_size
+
+        vocab = list(range(size))
+        m = [vocab[x * width:(x+1)*width] for x in range(int(size / width))]
+    
+        neighbors = dict()
+
+        for v in vocab:
+            col = v % width
+            row = v // width
+        
+            n = [m[r][c]
+                    for r in range(row - 1, row + 2) 
+                    for c in range(col - 1, col + 2) 
+                    if r < len(m) and c < len(m[0]) and r >= 0 and c >= 0 and m[r][c] != v]
+        
+            neighbors[v] = n
+    else:
+        neighbors = None
+        
+    
 
     if opts.sender_cell == 'transformer':
         sender = Sender(n_features=opts.n_features, n_hidden=opts.sender_embedding)
@@ -359,12 +386,14 @@ def main(params):
         game = core.SenderReceiverRnnReinforceNoisy(sender, receiver, loss, sender_entropy_coeff=opts.sender_entropy_coeff,
                                            receiver_entropy_coeff=opts.receiver_entropy_coeff,
                                            length_cost=opts.length_cost,unigram_penalty=opts.unigram_pen,reg=opts.reg,
-                                           rand_noise=opts.rand_noise, threshold=opts.threshold)
+                                           rand_noise=opts.rand_noise, threshold=opts.threshold,
+                                           neighbors=neighbors)
     else:
         game = SenderImpatientReceiverRnnReinforceNoisy(sender, receiver, loss_impatient, sender_entropy_coeff=opts.sender_entropy_coeff,
                                            receiver_entropy_coeff=opts.receiver_entropy_coeff,
                                            length_cost=opts.length_cost,unigram_penalty=opts.unigram_pen,reg=opts.reg,
-                                           rand_noise=opts.rand_noise, threshold=opts.threshold)
+                                           rand_noise=opts.rand_noise, threshold=opts.threshold, 
+                                           neighbors=neighbors)
 
     optimizer = core.build_optimizer(game.parameters())
 

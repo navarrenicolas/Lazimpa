@@ -835,7 +835,7 @@ class SenderReceiverRnnReinforceNoisy(nn.Module):
     5.0
     """
     def __init__(self, sender, receiver, loss, sender_entropy_coeff, receiver_entropy_coeff,
-                 length_cost=0.0,unigram_penalty=0.0,reg=False,rand_noise=False, threshold=0.02):
+                 length_cost=0.0,unigram_penalty=0.0,reg=False,rand_noise=False, threshold=0.02, neighbors=None):
         """
         :param sender: sender agent
         :param receiver: receiver agent
@@ -868,6 +868,8 @@ class SenderReceiverRnnReinforceNoisy(nn.Module):
         self.reg=reg
         self.rand_noise=rand_noise
         self.threshold=threshold
+        self.use_neighbors=use_neighbors
+        self.neighbors=neighbors
 
     def forward(self, sender_input, labels, receiver_input=None):
         old_message, log_prob_s, entropy_s = self.sender(sender_input)
