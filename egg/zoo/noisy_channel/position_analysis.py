@@ -12,12 +12,10 @@ import egg.core as core
 from egg.core import EarlyStopperAccuracy
 from egg.zoo.channel.features import OneHotLoader, UniformLoader
 from egg.zoo.channel.archs import Sender, Receiver
-from egg.core.util import dump_sender_receiver_test, neighbor_matrix
-from egg.core.util import dump_impose_message
 from egg.core.util import dump_test_position
 from egg.core.util import dump_test_position_impatient
 from egg.core.reinforce_wrappers import RnnReceiverImpatient
-from egg.core.reinforce_wrappers import SenderImpatientReceiverRnnReinforce
+from egg.core.reinforce_wrappers import SenderImpatientReceiverRnnReinforceNoisy
 from egg.core.util import dump_sender_receiver_impatient
 
 
@@ -140,8 +138,6 @@ def main(params):
 
     # single batches with 1s on the diag
     test_loader = UniformLoader(opts.n_features)
-    
-    neighbors = neighbor_matrix()
 
     if opts.sender_cell == 'transformer':
         sender = Sender(n_features=opts.n_features, n_hidden=opts.sender_embedding)
@@ -184,12 +180,12 @@ def main(params):
     receiver.load_state_dict(torch.load(opts.receiver_weights,map_location=torch.device('cpu')))
 
     if not opts.impatient: # TODO change to noisy
-        game = core.SenderReceiverRnnReinforce(sender, receiver, loss, sender_entropy_coeff=opts.sender_entropy_coeff,
+        game = core.SenderReceiverRnnReinforceNoisy(sender, receiver, loss, sender_entropy_coeff=opts.sender_entropy_coeff,
                                            receiver_entropy_coeff=opts.receiver_entropy_coeff,
                                            length_cost=opts.length_cost,unigram_penalty=opts.unigram_pen,
                                            rand_noise=False)
     else:
-        game = SenderImpatientReceiverRnnReinforce(sender, receiver, loss, sender_entropy_coeff=opts.sender_entropy_coeff,
+        game = SenderImpatientReceiverRnnReinforceNoisy(sender, receiver, loss, sender_entropy_coeff=opts.sender_entropy_coeff,
                                            receiver_entropy_coeff=opts.receiver_entropy_coeff,
                                            length_cost=opts.length_cost,unigram_penalty=opts.unigram_pen,
                                            rand_noise=False)
@@ -211,13 +207,13 @@ def main(params):
 
         if opts.impatient:
             sender_inputs, messages, receiver_inputs, receiver_outputs, _ = \
-                dump_test_position_impatient(trainer.game,
-                                    dataset,
-                                    position=position,
-                                    voc_size=opts.vocab_size,
-                                    gs=False,
-                                    device=device,
-                                    variable_length=True)
+            dump_test_position_impatient(trainer.game,
+                                                dataset,
+                                                position=position,
+                                                voc_size=opts.vocab_size,
+                                                gs=False,
+                                                device=device,
+                                                variable_length=True)
         else:
             sender_inputs, messages, receiver_inputs, receiver_outputs, _ = \
                 dump_test_position(trainer.game,
@@ -259,7 +255,7 @@ def main(params):
               position_sieve[i,j]=-1
 
 
-    np.save("analysis/position_sieve.npy",position_sieve)
+    np.save(f"{opts.save_dir}position_sieve.npy",position_sieve)
 
     core.close()
 

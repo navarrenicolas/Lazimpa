@@ -14,8 +14,8 @@ from egg.zoo.channel.features import OneHotLoader, UniformLoader
 from egg.zoo.channel.archs import Sender, Receiver
 from egg.core.util import dump_sender_receiver_test
 from egg.core.util import dump_impose_message
-from egg.core.util import dump_test_position
-from egg.core.util import dump_test_position_impatient
+from egg.core.util import dump_test_position_structure
+from egg.core.util import dump_test_position_structure_impatient
 from egg.core.reinforce_wrappers import RnnReceiverImpatient
 from egg.core.reinforce_wrappers import SenderImpatientReceiverRnnReinforceNoisy
 from egg.core.util import dump_sender_receiver_impatient, neighbor_matrix
@@ -211,8 +211,9 @@ def main(params):
     if opts.within:
         group = neighbors
     else:
-        for k, v in neighbors:
-            group[k] = [x for x in range(opts.vocab_size) if x not in v and x != k]
+        group = np.delete(np.arange(40),neighbors)
+        # for k, v in neighbors:
+        #     group[k] = [x for x in range(opts.vocab_size) if x not in v and x != k]
 
     position_sieve=np.zeros((opts.n_features,opts.max_len))
 
@@ -222,7 +223,7 @@ def main(params):
 
         if opts.impatient:
             sender_inputs, messages, receiver_inputs, receiver_outputs, _ = \
-                dump_test_position_impatient(trainer.game,
+                dump_test_position_structure_impatient(trainer.game,
                                     dataset,
                                     position=position,
                                     voc_size=opts.vocab_size,
@@ -232,7 +233,7 @@ def main(params):
                                     group=group)
         else:
             sender_inputs, messages, receiver_inputs, receiver_outputs, _ = \
-                dump_test_position(trainer.game,
+                dump_test_position_structure(trainer.game,
                                     dataset,
                                     position=position,
                                     voc_size=opts.vocab_size,
@@ -271,9 +272,13 @@ def main(params):
           for j in range(id_0[0]+1,opts.max_len):
               position_sieve[i,j]=-1
 
-
-    np.save("analysis/position_sieve.npy",position_sieve)
-
+    
+    print(opts.within)
+    
+    if opts.within:
+        np.save(f"{opts.save_dir}position_sieve_group_within.npy",position_sieve)
+    else:
+        np.save(f"{opts.save_dir}position_sieve_group_out.npy",position_sieve)
     core.close()
 
 
