@@ -211,9 +211,10 @@ def main(params):
     if opts.within:
         group = neighbors
     else:
-        group = np.delete(np.arange(40),neighbors)
-        # for k, v in neighbors:
-        #     group[k] = [x for x in range(opts.vocab_size) if x not in v and x != k]
+        for k, v in neighbors.items():
+            group[k] = [x for x in range(opts.vocab_size) if x not in v and x != k]
+    
+    # print(group)
 
     position_sieve=np.zeros((opts.n_features,opts.max_len))
 
@@ -272,8 +273,6 @@ def main(params):
           for j in range(id_0[0]+1,opts.max_len):
               position_sieve[i,j]=-1
 
-    
-    print(opts.within)
     
     if opts.within:
         np.save(f"{opts.save_dir}position_sieve_group_within.npy",position_sieve)
